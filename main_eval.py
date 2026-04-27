@@ -19,14 +19,15 @@ def set_seed(seed=0):
     torch.backends.cudnn.benchmark = False
 
 def main():
-    set_seed(0) 
+    set_seed(0) # Đã tắt để mô hình lấy trọng số ngẫu nhiên y như hôm qua
     print("="*65)
     print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC")
     print("="*65)
 
-    # 1. Khai báo đường dẫn tuyệt đối (Để đảm bảo 100% không nhầm lẫn)
-    train_feat_path = '/home/chaukietnguyen74/features/cifar100_train_feat.pt'
-    test_feat_path  = '/home/chaukietnguyen74/features/cifar100_test_feat.pt'
+    # 1. Khai báo đường dẫn đến file vector đặc trưng
+    # Trỏ vào file MỚI NHẤT vừa được trích xuất sáng nay trong GCD_GESNC
+    train_feat_path = os.path.expanduser('~/GCD_GESNC/features/cifar100_train_feat.pt')
+    test_feat_path  = os.path.expanduser('~/GCD_GESNC/features/cifar100_test_feat.pt')
 
     if not os.path.exists(train_feat_path):
         print(f"Error: Không tìm thấy file features tại {train_feat_path}")
