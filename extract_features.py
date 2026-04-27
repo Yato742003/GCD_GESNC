@@ -31,9 +31,9 @@ LABELED_FRACTION  = 0.5   # 50% của known class samples làm labeled
 
 # ─── Transforms ───────────────────────────────────────────────────────────────
 def get_transform():
-    """ViT-B/16 cần input 224×224. CIFAR-100 là 32×32 → resize."""
+    """Khớp chính xác với cấu trúc transform của CiPR: Resize(256) -> CenterCrop(224)"""
     return transforms.Compose([
-        transforms.Resize(224, interpolation=transforms.InterpolationMode.BICUBIC),
+        transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(CIFAR100_MEAN, CIFAR100_STD),
