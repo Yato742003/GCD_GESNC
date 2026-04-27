@@ -19,7 +19,7 @@ def set_seed(seed=0):
     torch.backends.cudnn.benchmark = False
 
 def main():
-    set_seed(0) # Đảm bảo reproducibility
+    # set_seed(0) # Đã tắt để mô hình lấy trọng số ngẫu nhiên y như hôm qua
     print("="*65)
     print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC")
     print("="*65)
@@ -56,19 +56,18 @@ def main():
     print(f"Loaded {n_train} Train samples ({labeled_mask.sum()} Labeled anchors) và {n_test} Test samples.")
 
     # 3. Huấn luyện Linear Classifier (Tạo "Bộ đo độ tự tin")
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"\n[Phase 1] Huấn luyện Linear Classifier Head (768 -> 80) trên thiết bị: {device}...")
-    head = nn.Linear(768, 80).to(device)
+    print(f"\n[Phase 1] Huấn luyện Linear Classifier Head (768 -> 80) trên thiết bị: cpu...")
+    head = nn.Linear(768, 80) # Không gọi .to(device) để chạy trên CPU y như hôm qua
     opt = torch.optim.Adam(head.parameters(), lr=1e-3, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
     
     # Chỉ lấy các mẫu có nhãn (20k anchors) để train classifier
-    X_lab = torch.from_numpy(train_feat[d_l]).float().to(device)
-    y_lab = torch.from_numpy(train_labels[d_l]).long().to(device)
+    X_lab = torch.from_numpy(train_feat[d_l]).float()
+    y_lab = torch.from_numpy(train_labels[d_l]).long()
     
     head.train()
     epochs = 100
-    batch_size = 250
+    batch_size = 256
     for ep in range(epochs):
         for i in range(0, len(X_lab), batch_size):
             loss = criterion(head(X_lab[i:i+batch_size]), y_lab[i:i+batch_size])
@@ -82,8 +81,8 @@ def main():
     combined_labels = np.concatenate([train_labels, test_labels])
 
     with torch.no_grad():
-        combined_tensor = torch.from_numpy(combined_feat).float().to(device)
-        all_logits = head(combined_tensor).cpu().numpy()
+        combined_tensor = torch.from_numpy(combined_feat).float()
+        all_logits = head(combined_tensor).numpy()
 
     # 5. Pseudo-labeling thông qua GEN Entropy
     # Thiết lập bộ tham số SOTA
