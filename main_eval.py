@@ -68,15 +68,10 @@ def main():
     
     head.train()
     epochs = 100
-    batch_size = 250 # hoặc 256 đều được
+    batch_size = 256
     for ep in range(epochs):
-        # Shuffle dữ liệu ở mỗi epoch để tránh lỗi học vẹt (Memorization)
-        perm = torch.randperm(len(X_lab))
-        X_shuffled = X_lab[perm]
-        y_shuffled = y_lab[perm]
-        
-        for i in range(0, len(X_shuffled), batch_size):
-            loss = criterion(head(X_shuffled[i:i+batch_size]), y_shuffled[i:i+batch_size])
+        for i in range(0, len(X_lab), batch_size):
+            loss = criterion(head(X_lab[i:i+batch_size]), y_lab[i:i+batch_size])
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -94,7 +89,7 @@ def main():
     # Thiết lập bộ tham số SOTA
     M_PARAM = 8        # Chỉ tính entropy trên top 8 class xác suất cao nhất
     GAMMA_PARAM = 0.1  # Hệ số làm sắc nét phân phối (gamma)
-    PCT = 0           # Chỉ lấy top 0% mẫu cực kỳ tự tin (p0)
+    PCT = 10           # Chỉ lấy top 10% mẫu cực kỳ tự tin (p10)
 
     print(f"\n[Phase 2] Tính điểm GEN (M={M_PARAM}, gamma={GAMMA_PARAM}) và lọc top {PCT}% tự tin nhất...")
     all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
