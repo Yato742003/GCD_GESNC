@@ -2,7 +2,7 @@
 
 Kiến trúc SOTA cho bài toán **Generalized Category Discovery (GCD)**.
 
-Đạt **80.61% All ACC** trên tập CIFAR-100 (80 Known / 20 Unknown), sánh ngang với các mô hình top đầu thế giới (SimGCD, PromptCAL) bằng cách thay thế hoàn toàn cấu trúc Hard Gate cổ điển bằng phương pháp **Soft Pseudo-labeling qua GEN Entropy**.
+Đạt **80.61% All ACC** trên tập CIFAR-100 (80 Known / 20 Unknown), bằng phương pháp **Soft Pseudo-labeling qua GEN Entropy**.
 
 ## Điểm Cốt Lõi Của Kiến Trúc
 1. **Linear Probing**: Xây dựng một classifier (768 -> 80) bằng 20,000 nhãn Labeled của tập Train.
