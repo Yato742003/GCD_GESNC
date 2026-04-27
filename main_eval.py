@@ -94,7 +94,7 @@ def main():
     # Thiết lập bộ tham số SOTA
     M_PARAM = 8        # Chỉ tính entropy trên top 8 class xác suất cao nhất
     GAMMA_PARAM = 0.1  # Hệ số làm sắc nét phân phối (gamma)
-    PCT = 10           # Chỉ lấy top 10% mẫu cực kỳ tự tin (p10)
+    PCT = 5           # Chỉ lấy top 5% mẫu cực kỳ tự tin (p5)
 
     print(f"\n[Phase 2] Tính điểm GEN (M={M_PARAM}, gamma={GAMMA_PARAM}) và lọc top {PCT}% tự tin nhất...")
     all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
