@@ -19,7 +19,7 @@ def set_seed(seed=0):
     torch.backends.cudnn.benchmark = False
 
 def main():
-    # set_seed(0) # Đã tắt để mô hình lấy trọng số ngẫu nhiên y như hôm qua
+    # set_seed(0) 
     print("="*65)
     print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC")
     print("="*65)
