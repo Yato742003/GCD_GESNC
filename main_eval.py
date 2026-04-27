@@ -68,7 +68,7 @@ def main():
     
     head.train()
     epochs = 100
-    batch_size = 256
+    batch_size = 250
     for ep in range(epochs):
         for i in range(0, len(X_lab), batch_size):
             loss = criterion(head(X_lab[i:i+batch_size]), y_lab[i:i+batch_size])
