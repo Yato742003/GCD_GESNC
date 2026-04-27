@@ -82,7 +82,7 @@ def main():
                         help="Thư mục lưu features")
     parser.add_argument('--pretrain', type=str, default='./checkpoints/final.pth',
                         help="Path tới weights")
-    parser.add_argument('--batch_size', type=int, default=250)
+    parser.add_argument('--batch_size', type=int, default=200) # Đã đổi từ 256 sang 200 để chia hết cho 50k và 10k
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
@@ -96,10 +96,26 @@ def main():
     model = vit_base()
     if os.path.exists(args.pretrain):
         state_dict = torch.load(args.pretrain, map_location='cpu')
+        # Nếu là dict chứa 'model', lấy phần model ra
         if isinstance(state_dict, dict) and 'model' in state_dict:
             state_dict = state_dict['model']
-        model.load_state_dict(state_dict, strict=False)
-        print("Loaded pretrained DINO weights.")
+        
+        # Xử lý tiền tố 'module.backbone.' hoặc 'backbone.'
+        clean_state_dict = {}
+        for k, v in state_dict.items():
+            new_key = k
+            if k.startswith('module.backbone.'):
+                new_key = k[len('module.backbone.'):]
+            elif k.startswith('backbone.'):
+                new_key = k[len('backbone.'):]
+            elif k.startswith('module.'):
+                new_key = k[len('module.'):]
+            
+            # Chỉ lấy các trọng số thuộc về backbone ViT
+            clean_state_dict[new_key] = v
+            
+        msg = model.load_state_dict(clean_state_dict, strict=False)
+        print(f"Loaded pretrained DINO weights. Matched keys: {len(clean_state_dict)}")
     else:
         print(f"[WARNING] Pretrain not found at {args.pretrain}. Sử dụng random init. Yêu cầu copy file vào!")
     model = model.to(device).eval()
