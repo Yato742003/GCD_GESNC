@@ -82,7 +82,7 @@ def main():
                         help="Thư mục lưu features")
     parser.add_argument('--pretrain', type=str, default='./checkpoints/final.pth',
                         help="Path tới weights")
-    parser.add_argument('--batch_size', type=int, default=250) # Đã đổi từ 256 sang 200 để chia hết cho 50k và 10k
+    parser.add_argument('--batch_size', type=int, default=250) # Đã đổi từ 256 sang 250 để chia hết cho 50k và 10k
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
