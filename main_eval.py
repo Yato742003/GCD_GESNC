@@ -19,15 +19,14 @@ def set_seed(seed=0):
     torch.backends.cudnn.benchmark = False
 
 def main():
-    # set_seed(0) # Đã tắt để mô hình lấy trọng số ngẫu nhiên y như hôm qua
+    set_seed(0) 
     print("="*65)
     print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC")
     print("="*65)
 
-    # 1. Khai báo đường dẫn đến file vector đặc trưng
-    # Chú ý: Trỏ đến file .pt đã được trích xuất từ ViT-B/16 (final.pth)
-    train_feat_path = os.path.expanduser('~/features/cifar100_train_feat.pt')
-    test_feat_path  = os.path.expanduser('~/features/cifar100_test_feat.pt')
+    # 1. Khai báo đường dẫn tuyệt đối (Để đảm bảo 100% không nhầm lẫn)
+    train_feat_path = '/home/chaukietnguyen74/features/cifar100_train_feat.pt'
+    test_feat_path  = '/home/chaukietnguyen74/features/cifar100_test_feat.pt'
 
     if not os.path.exists(train_feat_path):
         print(f"Error: Không tìm thấy file features tại {train_feat_path}")
@@ -85,7 +84,7 @@ def main():
         all_logits = head(combined_tensor).numpy()
 
     # 5. Pseudo-labeling thông qua GEN Entropy
-    # Thiết lập bộ tham số SOTA
+    # Thiết lập bộ tham số SOTA (Liu2023)
     M_PARAM = 8        # Chỉ tính entropy trên top 8 class xác suất cao nhất
     GAMMA_PARAM = 0.1  # Hệ số làm sắc nét phân phối (gamma)
     PCT = 10           # Chỉ lấy top 10% mẫu cực kỳ tự tin (p10)
