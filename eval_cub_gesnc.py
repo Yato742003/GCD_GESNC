@@ -189,9 +189,11 @@ def main():
 
     print(f"\n[Phase 3] GEN Soft Pseudo-labeling (M={M_PARAM}, gamma={GAMMA_PARAM}, Top {PCT}%)...")
 
+    # pseudo_pred khởi tạo trước để tránh UnboundLocalError khi PCT=0
+    pseudo_pred = all_logits.argmax(axis=1)
+
     if PCT > 0:
         all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
-        pseudo_pred = all_logits.argmax(axis=1)
         thresh = np.percentile(all_gen, PCT)
         confident = (all_gen < thresh)
     else:
