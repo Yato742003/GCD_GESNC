@@ -91,6 +91,10 @@ def main():
     parser.add_argument('--data_root', type=str, default=os.path.expanduser('~/cipr_cub200/data/CUB_200_2011'))
     parser.add_argument('--pretrain', type=str, default=os.path.expanduser('~/cipr_cub200/CiPR/checkpoints/run/cipr_cub/final.pth'))
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--pct', type=int, default=10,
+                        help='Top PCT%% confident samples dùng làm pseudo-labels (0 = tắt GEN, pure SNC)')
+    parser.add_argument('--m', type=int, default=8, help='GEN parameter M')
+    parser.add_argument('--gamma', type=float, default=0.1, help='GEN parameter gamma')
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -179,16 +183,20 @@ def main():
         combined_tensor = torch.from_numpy(combined_feat).to(device)
         all_logits = head(combined_tensor).cpu().numpy()
 
-    M_PARAM = 8
-    GAMMA_PARAM = 0.1
-    PCT = 10
+    M_PARAM = args.m
+    GAMMA_PARAM = args.gamma
+    PCT = args.pct
 
     print(f"\n[Phase 3] GEN Soft Pseudo-labeling (M={M_PARAM}, gamma={GAMMA_PARAM}, Top {PCT}%)...")
-    all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
-    pseudo_pred = all_logits.argmax(axis=1)
 
-    thresh = np.percentile(all_gen, PCT)
-    confident = (all_gen < thresh)
+    if PCT > 0:
+        all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
+        pseudo_pred = all_logits.argmax(axis=1)
+        thresh = np.percentile(all_gen, PCT)
+        confident = (all_gen < thresh)
+    else:
+        print("  PCT=0 → Bỏ qua GEN, chạy Pure SNC (chỉ dùng nhãn thật).")
+        confident = np.zeros(len(combined_labels), dtype=bool)
 
     # 6. Prepare SNC Anchors
     sl = np.full(len(combined_labels), -101, dtype=np.int64)
