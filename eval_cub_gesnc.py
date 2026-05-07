@@ -99,6 +99,7 @@ def main():
                         help='GEN+React: clip features tại quantile trước khi tính GEN score')
     parser.add_argument('--react_q', type=float, default=0.99,
                         help='Quantile threshold cho React clipping (default=0.99)')
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size for feature extraction')
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -148,13 +149,29 @@ def main():
     train_dataset = CUB200GCDDataset(args.data_root, mode='train_unlabeled', transform=transform, seed=args.seed)
     test_dataset  = CUB200GCDDataset(args.data_root, mode='test', transform=transform, seed=args.seed)
 
-    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=False, num_workers=4, pin_memory=True)
-    test_loader  = DataLoader(test_dataset, batch_size=256, shuffle=False, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader  = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
-    # 3. Extract Features (In-memory)
+    # 3. Extract or Load Features
+    feat_dir = os.path.expanduser('~/GCD_GESNC/features')
+    os.makedirs(feat_dir, exist_ok=True)
+    train_feat_path = os.path.join(feat_dir, 'cub200_train_feat.pt')
+    test_feat_path  = os.path.join(feat_dir, 'cub200_test_feat.pt')
+
     print("\n[Phase 1] Trích xuất Features...")
-    train_feat, train_labels, train_mask = extract_features(model, train_loader, device)
-    test_feat, test_labels, _            = extract_features(model, test_loader, device)
+    if os.path.exists(train_feat_path) and os.path.exists(test_feat_path):
+        print("  Loading pre-extracted features...")
+        train_data = torch.load(train_feat_path, map_location='cpu', weights_only=False)
+        test_data  = torch.load(test_feat_path, map_location='cpu', weights_only=False)
+        train_feat, train_labels, train_mask = train_data['features'].numpy(), train_data['labels'].numpy(), train_data['mask'].numpy()
+        test_feat, test_labels = test_data['features'].numpy(), test_data['labels'].numpy()
+    else:
+        print("  Extracting features from scratch...")
+        train_feat, train_labels, train_mask = extract_features(model, train_loader, device)
+        test_feat, test_labels, _            = extract_features(model, test_loader, device)
+        torch.save({'features': torch.tensor(train_feat), 'labels': torch.tensor(train_labels), 'mask': torch.tensor(train_mask)}, train_feat_path)
+        torch.save({'features': torch.tensor(test_feat), 'labels': torch.tensor(test_labels)}, test_feat_path)
+        print("  Saved features to disk.")
 
     labeled_mask = (train_mask == 1)
     d_l = np.where(labeled_mask)[0]
