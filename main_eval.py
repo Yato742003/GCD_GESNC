@@ -1,14 +1,43 @@
 import os
+import argparse
 import torch
 import numpy as np
 import torch.nn as nn
+from scipy.optimize import linear_sum_assignment
 
-# Import các module từ kiến trúc SOTA
 from src.utils.gen_entropy import compute_gen_score
-from src.utils.metrics import _to_numpy, l2_normalize, split_cluster_acc
+from src.utils.metrics import _to_numpy, l2_normalize
 from src.pipeline.snc_wrapper import run_snc
 
 import random
+
+
+def split_cluster_acc_v2(y_true, y_pred, mask):
+    """CiPR-standard Hungarian evaluation (same as eval_snc.py)."""
+    y_true = y_true.astype(int)
+    y_pred = y_pred.astype(int)
+    old_classes_gt = set(y_true[mask])
+    new_classes_gt = set(y_true[~mask])
+    assert y_pred.size == y_true.size
+    D = max(y_pred.max(), y_true.max()) + 1
+    w = np.zeros((D, D), dtype=int)
+    for i in range(y_pred.size):
+        w[y_pred[i], y_true[i]] += 1
+    ind = linear_sum_assignment(w.max() - w)
+    ind = list(map(list, zip(*ind)))
+    ind_map = {j: i for i, j in ind}
+    total_acc = sum([w[i, j] for i, j in ind]) * 1.0 / y_pred.size
+    old_acc, total_old = 0, 0
+    for i in old_classes_gt:
+        old_acc += w[ind_map[i], i]
+        total_old += sum(w[:, i])
+    old_acc /= total_old
+    new_acc, total_new = 0, 0
+    for i in new_classes_gt:
+        new_acc += w[ind_map[i], i]
+        total_new += sum(w[:, i])
+    new_acc /= total_new
+    return total_acc, old_acc, new_acc
 
 def set_seed(seed=0):
     random.seed(seed)
@@ -19,15 +48,26 @@ def set_seed(seed=0):
     torch.backends.cudnn.benchmark = False
 
 def main():
-    # set_seed(0) 
+    parser = argparse.ArgumentParser(description='GCD_GESNC CIFAR-100 Evaluation')
+    parser.add_argument('--feat_dir', type=str,
+                        default=os.path.expanduser('~/GCD_GESNC/features'),
+                        help='Thư mục chứa cifar100_train_feat.pt và cifar100_test_feat.pt')
+    parser.add_argument('--pct', type=int, default=10,
+                        help='Top PCT%% confident samples dùng làm pseudo-labels (0=pure SNC)')
+    parser.add_argument('--m', type=int, default=8, help='GEN parameter M')
+    parser.add_argument('--gamma', type=float, default=0.1, help='GEN parameter gamma')
+    parser.add_argument('--seed', type=int, default=0)
+    args = parser.parse_args()
+
+    random.seed(args.seed); np.random.seed(args.seed)
+    torch.manual_seed(args.seed); torch.cuda.manual_seed_all(args.seed)
+
     print("="*65)
-    print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC")
+    print("GCD_GESNC Pipeline: GEN-Augmented Semi-Supervised SNC (CIFAR-100)")
     print("="*65)
 
-    # 1. Khai báo đường dẫn đến file vector đặc trưng
-    # Trỏ vào file MỚI NHẤT vừa được trích xuất sáng nay trong GCD_GESNC
-    train_feat_path = os.path.expanduser('~/GCD_GESNC/features/cifar100_train_feat.pt')
-    test_feat_path  = os.path.expanduser('~/GCD_GESNC/features/cifar100_test_feat.pt')
+    train_feat_path = os.path.join(args.feat_dir, 'cifar100_train_feat.pt')
+    test_feat_path  = os.path.join(args.feat_dir, 'cifar100_test_feat.pt')
 
     if not os.path.exists(train_feat_path):
         print(f"Error: Không tìm thấy file features tại {train_feat_path}")
@@ -85,19 +125,20 @@ def main():
         combined_tensor = torch.from_numpy(combined_feat).float().to(device)
         all_logits = head(combined_tensor).cpu().numpy()
 
-    # 5. Pseudo-labeling thông qua GEN Entropy
-    # Thiết lập bộ tham số SOTA
-    M_PARAM = 8        # Chỉ tính entropy trên top 8 class xác suất cao nhất
-    GAMMA_PARAM = 0.1  # Hệ số làm sắc nét phân phối (gamma)
-    PCT = 10           # Chỉ lấy top 10% mẫu cực kỳ tự tin (p10)
+    # 5. GEN Pseudo-labeling
+    M_PARAM    = args.m
+    GAMMA_PARAM= args.gamma
+    PCT        = args.pct
 
-    print(f"\n[Phase 2] Tính điểm GEN (M={M_PARAM}, gamma={GAMMA_PARAM}) và lọc top {PCT}% tự tin nhất...")
-    all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
-    pseudo_pred = all_logits.argmax(axis=1) # Lấy class có xác suất cao nhất làm nhãn dự đoán
-
-    # Lọc mẫu: GEN score càng thấp càng tự tin thuộc Known Class
-    thresh = np.percentile(all_gen, PCT)
-    confident = (all_gen < thresh)
+    print(f"\n[Phase 2] GEN score (M={M_PARAM}, gamma={GAMMA_PARAM}), Top {PCT}%...")
+    pseudo_pred = all_logits.argmax(axis=1)
+    if PCT > 0:
+        all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
+        thresh  = np.percentile(all_gen, PCT)
+        confident = (all_gen < thresh)
+    else:
+        print("  PCT=0 → Pure SNC (chỉ dùng nhãn thật).")
+        confident = np.zeros(len(combined_labels), dtype=bool)
 
     # 6. Chuẩn bị Anchors cho SNC (Sự kết hợp giữa nhãn thật & nhãn ảo)
     sl = np.full(len(combined_labels), -101, dtype=np.int64) # -101 = Unlabeled
@@ -129,22 +170,23 @@ def main():
         mask=sm
     )
 
-    # 8. Đánh giá kết quả trên 10,000 Test Set
-    test_pred = req[n_train:] # Cắt lấy phần dự đoán của 10k Test (Nửa sau của array)
-    old_mask = (test_labels < 80) # Mask xác định Old Class
-    
-    # Tính toán Accuracy dựa trên thuật toán Hungarian Matching
-    a, o, n = split_cluster_acc(test_labels, test_pred, old_mask)
-    h = 2 * o * n / max(o + n, 1e-12) # H-Score (Harmonic Mean)
+    # 8. Evaluation
+    test_pred = req[n_train:]
+    old_mask  = (test_labels < 80)  # CIFAR-100: 80 Known
 
-    print("\n" + "="*50)
-    print(" SOTA TEST SET EVALUATION RESULTS ")
-    print("="*50)
-    print(f"All ACC : {a:.2%}")
-    print(f"Old ACC : {o:.2%}")
-    print(f"New ACC : {n:.2%}")
-    print(f"H-score : {h:.2%}")
-    print("="*50)
+    a, o, n = split_cluster_acc_v2(test_labels, test_pred, old_mask)
+    h = 2 * o * n / max(o + n, 1e-12)
+
+    print("\n" + "="*55)
+    print(" CIFAR-100 TEST RESULTS (CiPR-standard eval) ")
+    print("="*55)
+    print(f"  All ACC : {a:.4f}  ({a:.2%})")
+    print(f"  Old ACC : {o:.4f}  ({o:.2%})")
+    print(f"  New ACC : {n:.4f}  ({n:.2%})")
+    print(f"  H-score : {h:.4f}  ({h:.2%})")
+    print("="*55)
+    print(f"\n  GESNC Baseline (PCT=10, M=8, γ=0.1): All=80.61%, New=70.45%")
+    print(f"  Delta All: {(a - 0.8061)*100:+.2f}%")
 
 if __name__ == "__main__":
     main()
