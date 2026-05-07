@@ -56,6 +56,10 @@ def main():
                         help='Top PCT%% confident samples dùng làm pseudo-labels (0=pure SNC)')
     parser.add_argument('--m', type=int, default=8, help='GEN parameter M')
     parser.add_argument('--gamma', type=float, default=0.1, help='GEN parameter gamma')
+    parser.add_argument('--react', action='store_true',
+                        help='GEN+React: clip features tại quantile trước khi tính GEN score')
+    parser.add_argument('--react_q', type=float, default=0.99,
+                        help='Quantile threshold cho React clipping (default=0.99)')
     parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
 
@@ -121,16 +125,28 @@ def main():
     combined_feat   = np.concatenate([train_feat, test_feat])
     combined_labels = np.concatenate([train_labels, test_labels])
 
+    # GEN + React: clip features trước khi tính logits (chỉ dùng để chọn pseudo-labels)
+    if args.react:
+        clip_thresh = np.quantile(train_feat[d_l], args.react_q)
+        feat_for_gen = np.clip(combined_feat, a_min=None, a_max=clip_thresh)
+        print(f"  [React] clip_q={args.react_q:.4f}, thresh={clip_thresh:.4f}")
+    else:
+        feat_for_gen = combined_feat
+
     with torch.no_grad():
-        combined_tensor = torch.from_numpy(combined_feat).float().to(device)
-        all_logits = head(combined_tensor).cpu().numpy()
+        all_logits = []
+        for i in range(0, len(feat_for_gen), 512):
+            batch = torch.from_numpy(feat_for_gen[i:i+512]).float().to(device)
+            all_logits.append(head(batch).cpu().numpy())
+        all_logits = np.concatenate(all_logits)
 
     # 5. GEN Pseudo-labeling
     M_PARAM    = args.m
     GAMMA_PARAM= args.gamma
     PCT        = args.pct
 
-    print(f"\n[Phase 2] GEN score (M={M_PARAM}, gamma={GAMMA_PARAM}), Top {PCT}%...")
+    react_tag = f" + React(q={args.react_q})" if args.react else ""
+    print(f"\n[Phase 2] GEN{react_tag} score (M={M_PARAM}, gamma={GAMMA_PARAM}), Top {PCT}%...")
     pseudo_pred = all_logits.argmax(axis=1)
     if PCT > 0:
         all_gen = compute_gen_score(all_logits, M=M_PARAM, gamma=GAMMA_PARAM)
@@ -170,23 +186,40 @@ def main():
         mask=sm
     )
 
-    # 8. Evaluation
+    # 8a. Evaluation — CiPR protocol: unlabeled TRAIN data (mask=0)
+    unlb_mask = (train_mask == 0)  # unlabeled trong train set
+    train_pred = req[:n_train]
+    trg_unlb = train_labels[unlb_mask]
+    pred_unlb = train_pred[unlb_mask]
+    old_mask_unlb = (trg_unlb < 80)
+
+    a_u, o_u, n_u = split_cluster_acc_v2(trg_unlb, pred_unlb, old_mask_unlb)
+    h_u = 2 * o_u * n_u / max(o_u + n_u, 1e-12)
+
+    # 8b. Evaluation — Test set (10k standard CIFAR-100 test)
     test_pred = req[n_train:]
-    old_mask  = (test_labels < 80)  # CIFAR-100: 80 Known
+    old_mask_test = (test_labels < 80)
+    a_t, o_t, n_t = split_cluster_acc_v2(test_labels, test_pred, old_mask_test)
+    h_t = 2 * o_t * n_t / max(o_t + n_t, 1e-12)
 
-    a, o, n = split_cluster_acc_v2(test_labels, test_pred, old_mask)
-    h = 2 * o * n / max(o + n, 1e-12)
+    print("\n" + "="*60)
+    print(" CIFAR-100 RESULTS — CiPR Protocol (Unlabeled Train) ")
+    print("="*60)
+    print(f"  All ACC : {a_u:.4f}  ({a_u:.2%})")
+    print(f"  Old ACC : {o_u:.4f}  ({o_u:.2%})")
+    print(f"  New ACC : {n_u:.4f}  ({n_u:.2%})")
+    print(f"  H-score : {h_u:.4f}  ({h_u:.2%})")
+    print("="*60)
+    print(f"  CiPR Paper Baseline: All=80.00%, Old=84.33%, New=62.70%")
+    print(f"  Delta All (vs paper): {(a_u - 0.80)*100:+.2f}%")
 
-    print("\n" + "="*55)
-    print(" CIFAR-100 TEST RESULTS (CiPR-standard eval) ")
-    print("="*55)
-    print(f"  All ACC : {a:.4f}  ({a:.2%})")
-    print(f"  Old ACC : {o:.4f}  ({o:.2%})")
-    print(f"  New ACC : {n:.4f}  ({n:.2%})")
-    print(f"  H-score : {h:.4f}  ({h:.2%})")
-    print("="*55)
-    print(f"\n  GESNC Baseline (PCT=10, M=8, γ=0.1): All=80.61%, New=70.45%")
-    print(f"  Delta All: {(a - 0.8061)*100:+.2f}%")
+    print("\n" + "="*60)
+    print(" CIFAR-100 RESULTS — Test Set (10k Standard) ")
+    print("="*60)
+    print(f"  All ACC : {a_t:.4f}  ({a_t:.2%})")
+    print(f"  Old ACC : {o_t:.4f}  ({o_t:.2%})")
+    print(f"  New ACC : {n_t:.4f}  ({n_t:.2%})")
+    print(f"  H-score : {h_t:.4f}  ({h_t:.2%})")
 
 if __name__ == "__main__":
     main()
