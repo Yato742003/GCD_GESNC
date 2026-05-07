@@ -95,6 +95,10 @@ def main():
                         help='Top PCT%% confident samples dùng làm pseudo-labels (0 = tắt GEN, pure SNC)')
     parser.add_argument('--m', type=int, default=8, help='GEN parameter M')
     parser.add_argument('--gamma', type=float, default=0.1, help='GEN parameter gamma')
+    parser.add_argument('--react', action='store_true',
+                        help='GEN+React: clip features tại quantile trước khi tính GEN score')
+    parser.add_argument('--react_q', type=float, default=0.99,
+                        help='Quantile threshold cho React clipping (default=0.99)')
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -179,15 +183,20 @@ def main():
     combined_feat   = np.concatenate([train_feat, test_feat])
     combined_labels = np.concatenate([train_labels, test_labels])
 
+    # GEN + React: clip features trước khi tính logits (chỉ dùng để chọn pseudo-labels)
+    if args.react:
+        clip_thresh = np.quantile(train_feat[d_l], args.react_q)
+        feat_for_gen = np.clip(combined_feat, a_min=None, a_max=clip_thresh)
+        print(f"  [React] clip_q={args.react_q:.4f}, thresh={clip_thresh:.4f}")
+    else:
+        feat_for_gen = combined_feat
+
     with torch.no_grad():
-        combined_tensor = torch.from_numpy(combined_feat).to(device)
-        all_logits = head(combined_tensor).cpu().numpy()
+        feat_tensor = torch.from_numpy(feat_for_gen).to(device)
+        all_logits = head(feat_tensor).cpu().numpy()
 
-    M_PARAM = args.m
-    GAMMA_PARAM = args.gamma
-    PCT = args.pct
-
-    print(f"\n[Phase 3] GEN Soft Pseudo-labeling (M={M_PARAM}, gamma={GAMMA_PARAM}, Top {PCT}%)...")
+    react_tag = f" + React(q={args.react_q})" if args.react else ""
+    print(f"\n[Phase 3] GEN{react_tag} Pseudo-labeling (M={M_PARAM}, gamma={GAMMA_PARAM}, Top {PCT}%)...")
 
     # pseudo_pred khởi tạo trước để tránh UnboundLocalError khi PCT=0
     pseudo_pred = all_logits.argmax(axis=1)
