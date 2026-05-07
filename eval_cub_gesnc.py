@@ -212,6 +212,10 @@ def main():
         feat_tensor = torch.from_numpy(feat_for_gen).to(device)
         all_logits = head(feat_tensor).cpu().numpy()
 
+    M_PARAM = args.m
+    GAMMA_PARAM = args.gamma
+    PCT = args.pct
+
     react_tag = f" + React(q={args.react_q})" if args.react else ""
     print(f"\n[Phase 3] GEN{react_tag} Pseudo-labeling (M={M_PARAM}, gamma={GAMMA_PARAM}, Top {PCT}%)...")
 
