@@ -313,7 +313,7 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
     print(f"  New ACC : {n_u:.4f}  ({n_u:.2%})")
     print(f"  H-score : {h_u:.4f}  ({h_u:.2%})")
     print("=" * 60)
-    print("  Reference: final checkpoint, strict train-only protocol")
+    print("  Reference: final checkpoint; see protocol label above")
 
     if n_train is not None and test_labels is not None:
         test_pred = req[n_train:]
