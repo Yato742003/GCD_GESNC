@@ -313,8 +313,7 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
     print(f"  New ACC : {n_u:.4f}  ({n_u:.2%})")
     print(f"  H-score : {h_u:.4f}  ({h_u:.2%})")
     print("=" * 60)
-    print(f"  CiPR Baseline (epoch 60): All=62.22%, Old=63.58%, New=61.54%")
-    print(f"  Delta All: {(a_u - 0.6222) * 100:+.2f}%")
+    print("  Reference: final checkpoint, strict train-only protocol")
 
     if n_train is not None and test_labels is not None:
         test_pred = req[n_train:]
