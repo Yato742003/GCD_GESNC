@@ -114,7 +114,8 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
     if args.react:
         clip_thresh = np.quantile(feat[d_l], args.react_q)
         feat_for_gen = np.clip(feat, a_min=None, a_max=clip_thresh)
-        print(f"  [React:{name}] clip_q={args.react_q:.4f}, thresh={clip_thresh:.4f}")
+        clipped_ratio = float((feat > clip_thresh).sum()) / float(feat.size)
+        print(f"  [React:{name}] clip_q={args.react_q:.4f}, thresh={clip_thresh:.4f}, clipped={clipped_ratio:.4%}")
     else:
         feat_for_gen = feat
 
@@ -145,9 +146,10 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
     sm = (orig_labeled | aug).astype(np.float32)
 
     print(f"Anchors: {real_labeled_count} Real + {int(aug.sum())} Pseudo = {int(sm.sum())} Total.")
-    print(f"\n[Phase 3:{name}] Running SNC on {len(feat)} samples (K={N_TOTAL_CLASSES})...")
-    _, _, req = run_snc(
-        data=l2_normalize(feat_for_gen),
+    feat_for_snc = feat_for_gen if args.react else feat
+    print(f"\n[Phase 3:{name}] Running SNC on {len(feat_for_snc)} samples (K={N_TOTAL_CLASSES})...")
+    snc_inputs = dict(
+        data=l2_normalize(feat_for_snc),
         req_clust=N_TOTAL_CLASSES,
         distance="cosine",
         ensure_early_exit=True,
@@ -155,6 +157,7 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
         labeled=sl,
         mask=sm,
     )
+    _, _, req = run_snc(**snc_inputs)
 
     train_labeled_mask = labeled_mask[:train_count]
     unlb_mask = ~train_labeled_mask
