@@ -315,6 +315,10 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
     print("=" * 60)
     print("  Reference: final checkpoint; see protocol label above")
 
+    res = {
+        "train_all": a_u, "train_old": o_u, "train_new": n_u, "train_h": h_u
+    }
+
     if n_train is not None and test_labels is not None:
         test_pred = req[n_train:]
         old_mask_test = test_labels < N_KNOWN_CLASSES
@@ -328,6 +332,10 @@ def run_protocol(name, feat, labels, labeled_mask, head, args, device, n_train=N
         print(f"  New ACC : {n_t:.4f}  ({n_t:.2%})")
         print(f"  H-score : {h_t:.4f}  ({h_t:.2%})")
         print("=" * 60)
+        res.update({
+            "test_all": a_t, "test_old": o_t, "test_new": n_t, "test_h": h_t
+        })
+    return res
 
 
 def main():
@@ -349,6 +357,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--refresh_cache", action="store_true")
+    parser.add_argument("--output_csv", type=str, default="", help="Path to save results in CSV format")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -404,8 +413,9 @@ def main():
     print(f"Loaded train={len(train_feat)} ({int(labeled_mask.sum())} labeled anchors), test={len(test_feat)}.")
     head = train_head(train_feat, train_labels, labeled_mask, device)
 
+    train_only_res = None
     if args.protocol in ("train_only", "both"):
-        run_protocol(
+        train_only_res = run_protocol(
             "train_only",
             feat=train_feat,
             labels=train_labels,
@@ -415,11 +425,12 @@ def main():
             device=device,
         )
 
+    trans_res = None
     if args.protocol in ("transductive", "both"):
         combined_feat = np.concatenate([train_feat, test_feat])
         combined_labels = np.concatenate([train_labels, test_labels])
         combined_labeled = np.concatenate([labeled_mask, np.zeros(len(test_feat), dtype=bool)])
-        run_protocol(
+        trans_res = run_protocol(
             "transductive",
             feat=combined_feat,
             labels=combined_labels,
@@ -430,6 +441,33 @@ def main():
             n_train=len(train_feat),
             test_labels=test_labels,
         )
+
+    if args.output_csv:
+        import csv
+        file_exists = os.path.exists(args.output_csv)
+        with open(args.output_csv, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                header = ["seed", "protocol", "pct", "m", "gamma", "react", "react_q", 
+                          "train_all", "train_old", "train_new", "train_h",
+                          "test_all", "test_old", "test_new", "test_h"]
+                writer.writerow(header)
+            
+            # Ghi kết quả transductive
+            if trans_res:
+                writer.writerow([
+                    args.seed, "transductive", args.pct, args.m, args.gamma, int(args.react), args.react_q,
+                    trans_res.get("train_all", 0.0), trans_res.get("train_old", 0.0), trans_res.get("train_new", 0.0), trans_res.get("train_h", 0.0),
+                    trans_res.get("test_all", 0.0), trans_res.get("test_old", 0.0), trans_res.get("test_new", 0.0), trans_res.get("test_h", 0.0)
+                ])
+            # Ghi kết quả train_only
+            if train_only_res:
+                writer.writerow([
+                    args.seed, "train_only", args.pct, args.m, args.gamma, int(args.react), args.react_q,
+                    train_only_res.get("train_all", 0.0), train_only_res.get("train_old", 0.0), train_only_res.get("train_new", 0.0), train_only_res.get("train_h", 0.0),
+                    0.0, 0.0, 0.0, 0.0
+                ])
+        print(f"Results appended to CSV: {args.output_csv}")
 
 
 if __name__ == "__main__":
