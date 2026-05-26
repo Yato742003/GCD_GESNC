@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import csv
 import numpy as np
@@ -74,14 +75,14 @@ def run_experiment(dataset_name, config):
     print(f"\n>>> [1/2] Bắt đầu chạy CiPR Baseline ({len(seeds)} hạt giống)...")
     for seed in seeds:
         print(f"  --> Đang chạy seed={seed}...")
-        cmd = ["python", script] + base_args + config["cipr"] + ["--seed", str(seed), "--output_csv", csv_cipr]
+        cmd = [sys.executable, script] + base_args + config["cipr"] + ["--seed", str(seed), "--output_csv", csv_cipr]
         subprocess.run(cmd, check=True)
         
     # 2. Chạy GESNC Đề xuất
     print(f"\n>>> [2/2] Bắt đầu chạy GESNC Đề xuất ({len(seeds)} hạt giống)...")
     for seed in seeds:
         print(f"  --> Đang chạy seed={seed}...")
-        cmd = ["python", script] + base_args + config["gesnc"] + ["--seed", str(seed), "--output_csv", csv_gesnc]
+        cmd = [sys.executable, script] + base_args + config["gesnc"] + ["--seed", str(seed), "--output_csv", csv_gesnc]
         subprocess.run(cmd, check=True)
 
     # Đọc kết quả thu được, chỉ lấy protocol=transductive
