@@ -150,7 +150,12 @@ def main():
     sl = np.full(len(combined_labels), -101, dtype=np.int64)
     sl[combined_labeled] = combined_labels[combined_labeled]
     
-    aug = confident & ~combined_labeled
+    # Chỉ cho phép pseudo-label từ train samples (pseudo_scope="train")
+    n_train = len(train_feat)
+    eligible_for_pseudo = np.zeros(len(combined_labels), dtype=bool)
+    eligible_for_pseudo[:n_train] = True
+    
+    aug = confident & ~combined_labeled & eligible_for_pseudo
     sl[aug] = pseudo_pred[aug]
     sm = (combined_labeled | aug).astype(np.float32)
     
@@ -166,7 +171,6 @@ def main():
     )
     
     # Chỉ xét phần Unlabeled Train của tập dữ liệu
-    n_train = len(train_feat)
     train_labeled_mask = labeled_mask
     unlb_mask = ~train_labeled_mask
     

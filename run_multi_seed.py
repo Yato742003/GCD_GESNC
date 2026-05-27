@@ -14,7 +14,7 @@ CONFIGS = {
     "cifar100": {
         "script": "main_eval.py",
         "seeds": CIFAR100_SEEDS,
-        "base_args": ["--protocol", "transductive"],
+        "base_args": ["--protocol", "transductive", "--pseudo_scope", "train"],
         "cipr": ["--pct", "0"],
         "gesnc": ["--pct", "10", "--m", "8", "--gamma", "0.2", "--react", "--react_q", "0.99"]
     },
