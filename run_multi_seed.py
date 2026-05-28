@@ -16,7 +16,7 @@ CONFIGS = {
         "seeds": CIFAR100_SEEDS,
         "base_args": ["--protocol", "transductive", "--pseudo_scope", "train"],
         "cipr": ["--pct", "0"],
-        "gesnc": ["--pct", "10", "--m", "8", "--gamma", "0.2", "--react", "--react_q", "0.99"]
+        "gesnc": ["--pct", "10", "--m", "16", "--gamma", "0.05", "--react", "--react_q", "0.99"]
     },
     "cub200": {
         "script": "eval_cub_gesnc.py",
