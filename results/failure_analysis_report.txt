@@ -1,0 +1,30 @@
+=== BÁO CÁO PHÂN TÍCH LỖI NGỮ NGHĨA TRÊN CÁC LỚP CHƯA BIẾT (UNKNOWN) ===
+
+1. TOP 5 CẶP LỚP NHẦM LẪN NGỮ NGHĨA NHIỀU NHẤT:
+   1. Unknown [streetcar] -> Known [bus] : 86.60%
+   2. Unknown [whale] -> Known [dolphin] : 77.40%
+   3. Unknown [woman] -> Known [girl] : 70.20%
+   4. Unknown [willow_tree] -> Known [oak_tree] : 47.20%
+   5. Unknown [willow_tree] -> Known [maple_tree] : 39.60%
+
+2. XẾP HẠNG ĐỘ CHÍNH XÁC CỦA 20 LỚP UNKNOWN (TỆ NHẤT ĐẾN TỐT NHẤT):
+    1. Lớp [streetcar       ] - ACC:   0.00%
+    2. Lớp [willow_tree     ] - ACC:   0.00%
+    3. Lớp [woman           ] - ACC:   0.00%
+    4. Lớp [whale           ] - ACC:   8.60%
+    5. Lớp [tulip           ] - ACC:  54.80%
+    6. Lớp [telephone       ] - ACC:  61.80%
+    7. Lớp [television      ] - ACC:  66.60%
+    8. Lớp [worm            ] - ACC:  77.20%
+    9. Lớp [trout           ] - ACC:  81.20%
+   10. Lớp [train           ] - ACC:  83.00%
+   11. Lớp [squirrel        ] - ACC:  84.80%
+   12. Lớp [table           ] - ACC:  86.60%
+   13. Lớp [sweet_pepper    ] - ACC:  86.80%
+   14. Lớp [turtle          ] - ACC:  87.00%
+   15. Lớp [tiger           ] - ACC:  93.80%
+   16. Lớp [tractor         ] - ACC:  93.80%
+   17. Lớp [tank            ] - ACC:  94.80%
+   18. Lớp [wolf            ] - ACC:  95.20%
+   19. Lớp [sunflower       ] - ACC:  96.40%
+   20. Lớp [wardrobe        ] - ACC:  97.40%
