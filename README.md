@@ -20,14 +20,23 @@ Experimental evaluation pipeline for **Generalized Category Discovery (GCD)** an
 3. **Post-Hoc Activation & Tail Bounding:** Applies **ReAct** activation clipping (`q = 0.99`) and **Generalized Entropy (GEN)** with Top-$M$ probability truncation (`M = 8`) to separate confident in-distribution anchors from uncertain open-world samples.
 4. **Semi-Supervised SNC Clustering:** Combines ground-truth labeled instances with the top `PCT%` lowest-entropy pseudo-labeled anchors inside **Selective Neighbor Clustering (SNC)**, followed by Hungarian matching evaluation (`All ACC`, `Old ACC`, `New ACC`, `H-score`).
 
-```text
-Frozen ViT-B/16 DINO (768-d [CLS])
-  └─▶ Linear Classifier Head on Labeled Known Classes (768 -> N_known)
-        └─▶ ReAct Activation Clipping (q = 0.99)
-              └─▶ Generalized Entropy (GEN: M = 8, γ) -> Top PCT% Pseudo-Label Anchors
-                    └─▶ Semi-Supervised Selective Neighbor Clustering (SNC)
-                          └─▶ Hungarian Matching Evaluation (All / Old / New ACC, H-score)
+```mermaid
+flowchart LR
+    IMG["Input Image"] --> VIT["Frozen ViT-B/16 DINO (768-d CLS)"]
+    VIT --> HEAD["Linear Head on Known Classes"]
+    HEAD --> REACT["ReAct Clipping (q = 0.99)"]
+    REACT --> GEN["Generalized Entropy (M = 8, γ)"]
+    GEN -->|"Top PCT% confident anchors"| SNC["Semi-Supervised SNC Clustering"]
+    SNC --> EVAL["Hungarian Evaluation (All / Old / New ACC, H-score)"]
 ```
+
+---
+
+## Trade-offs & Design Decisions
+
+- **Frozen Backbone + Post-Hoc OOD Bounding Over End-to-End Retraining:** Keeping ViT-B/16 DINO frozen avoids expensive multi-GPU contrastive retraining on 16 GB T4/L4 GPUs while still improving fine-grained cluster purity through post-hoc logit calibration (`GEN` + `ReAct`).
+- **Top-M Truncation (`M = 8`) & ReAct Clipping (`q = 0.99`):** Standard Softmax entropy is distorted by long-tail noise across 100–200 classes and outlier feature activations; clipping extreme activations before computing truncated Generalized Entropy yields cleaner pseudo-label anchors for SNC.
+- **Coarse vs. Fine-Grained Regime Trade-off:** Multi-seed paired *t*-tests show statistically significant gains across all 4 metrics on fine-grained **CUB-200-2011** (`p < 0.05`), whereas on low-resolution 32×32 **CIFAR-100**, GESNC improves `New ACC` (`+0.44%`) at the cost of minor `Old ACC` drift due to tightly overlapping visual pairs (`streetcar → bus`, `whale → dolphin`) documented in `results/failure_analysis_report.txt`.
 
 ---
 
