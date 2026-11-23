@@ -1,0 +1,21 @@
+# Large weights & extracted features
+checkpoints/**/*.pth
+checkpoints/**/*.pt
+checkpoints/**/*.bin
+features/**/*.pt
+features/**/*.npy
+data/
+
+# Python & virtual environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Crash dumps & OS files
+*.stackdump
+**/*.stackdump
+.DS_Store
+Thumbs.db
